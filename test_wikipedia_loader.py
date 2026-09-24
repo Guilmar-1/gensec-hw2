@@ -3,11 +3,12 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from langchain_core.document_loaders import BaseLoader
 from wikipedia_loader import WikipediaLoader
 
 
 def test_load_returns_langchain_documents_from_wikipedia_pages() -> None:
-    """Verify the loader converts mocked Wikipedia pages into documents."""
+    """Verify BaseLoader.load returns mocked Wikipedia pages as documents."""
     # Prepare fake Wikipedia pages so the test does not need network access.
     pages = {
         "LangChain": SimpleNamespace(
@@ -43,3 +44,30 @@ def test_load_returns_langchain_documents_from_wikipedia_pages() -> None:
         "title": "LangChain",
         "summary": "A framework.",
     }
+
+
+def test_lazy_load_yields_documents_lazily() -> None:
+    """Verify WikipediaLoader follows BaseLoader and defers requests until iterated."""
+    loader = WikipediaLoader(query="LangChain", load_max_docs=1)
+    fake_page = SimpleNamespace(
+        title="LangChain",
+        content="LangChain is a framework.",
+        summary="A framework.",
+        url="https://en.wikipedia.org/wiki/LangChain",
+    )
+
+    assert isinstance(loader, BaseLoader)
+    with (
+        patch("wikipedia_loader.wikipedia.search", return_value=["LangChain"]) as search,
+        patch("wikipedia_loader.wikipedia.page", return_value=fake_page) as page,
+    ):
+        documents = loader.lazy_load()
+        search.assert_not_called()
+        page.assert_not_called()
+
+        document = next(documents)
+
+    search.assert_called_once_with("LangChain", results=1)
+    page.assert_called_once_with("LangChain", auto_suggest=False)
+    assert document.page_content == "LangChain is a framework."
+    assert document.metadata["source"] == "https://en.wikipedia.org/wiki/LangChain"

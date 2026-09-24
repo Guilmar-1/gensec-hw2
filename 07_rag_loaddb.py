@@ -17,6 +17,7 @@ from langchain_google_vertexai import VertexAIEmbeddings
 
 # custom Wikipedia:
 from wikipedia_loader import WikipediaLoader
+from nvd_loader import NVDLoader
 
 import readline
 
@@ -84,6 +85,13 @@ def load_wikipedia(query):
     # load_docs(WikipediaLoader(query=query, load_max_docs=1).load())
     load_docs(docs)
 
+def load_nvd(keyword="OpenSSH", max_cves=5):
+    """Load a small, bounded NVD CVE search into the persistent vector store."""
+    # Keep this to one keyless API request and pass documents through the same
+    # splitter, embedding function, and Chroma store used by other sources.
+    docs = NVDLoader(keyword=keyword, max_cves=max_cves).load()
+    load_docs(docs)
+
 def load_arxiv(query):
     """Load an arXiv paper and add it to the vector database."""
     al = ArxivLoader(query=query, load_max_docs=1)
@@ -146,6 +154,10 @@ def load_csv(directory):
 wiki_query = "LangChain"
 print(f"Loading Wikipedia pages on: {wiki_query}")
 load_wikipedia(wiki_query)
+
+nvd_keyword = "OpenSSH"
+print(f"Loading up to 5 NVD CVEs matching: {nvd_keyword}")
+load_nvd(keyword=nvd_keyword, max_cves=5)
 
 arxiv_query = "2310.03714"
 
